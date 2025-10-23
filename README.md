@@ -217,3 +217,12 @@ PDF_TOOL/
 
 **享受便捷的 PDF 處理體驗！** 🎉
 
+## 🔗 第三方授權
+
+本專案使用之第三方開源套件與授權說明，請見 `THIRD_PARTY_LICENSES.md`。其中 PDF.js 採用 Apache-2.0，需保留其 LICENSE 與 NOTICE。
+
+- 專案授權：參見 `LICENSE`
+- 第三方授權彙整：`THIRD_PARTY_LICENSES.md`
+
+---
+

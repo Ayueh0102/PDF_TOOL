@@ -217,3 +217,12 @@ Feel free to reach out with any questions or suggestions.
 
 **Enjoy a convenient PDF processing experience!** 🎉
 
+## 🔗 Third-Party Licenses
+
+See `THIRD_PARTY_LICENSES.md` for third-party open-source packages and their licenses used in this project. PDF.js is licensed under Apache-2.0 and requires preserving its LICENSE and NOTICE.
+
+- Project License: `LICENSE`
+- Third-Party Licenses Summary: `THIRD_PARTY_LICENSES.md`
+
+---
+
