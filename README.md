@@ -2,6 +2,12 @@
 
 一個純前端的 PDF 處理工具集合，所有操作都在瀏覽器中完成，無需上傳到伺服器，保護您的隱私和數據安全。
 
+**作者：** CHUN TING YUEH
+
+**語言版本：** [繁體中文](README.md) | [English](README_EN.md)
+
+---
+
 ## ✨ 功能特色
 
 ### 🖼️ 圖片轉 PDF 轉換器
@@ -173,7 +179,8 @@ PDF_TOOL/
 ├── pdf_to_png_converter.html       # PDF/Word 轉 PNG
 ├── pdf_unlock_converter.html       # PDF 解鎖
 ├── pdf_split_converter.html        # PDF 分頁輸出
-└── README.md                        # 說明文件
+├── README.md                        # 說明文件（繁體中文）
+└── README_EN.md                     # 說明文件（English）
 ```
 
 ### 開發原則
@@ -193,6 +200,12 @@ PDF_TOOL/
 ## 🤝 貢獻
 
 歡迎提出問題和建議！
+
+---
+
+## 👤 作者
+
+**CHUN TING YUEH**
 
 ---
 
