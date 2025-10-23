@@ -383,6 +383,32 @@
             </ul>
         </div>
 
+        <div class="settings-panel" style="padding: 30px 40px; background: #fffbeb; border-bottom: 1px solid #fde68a;">
+            <div class="settings-title" style="font-size: 1.2rem; font-weight: 700; color: #1f2937; margin-bottom: 20px;">⚙️ 輸出品質設定</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-weight: 600; color: #374151; margin-bottom: 8px; font-size: 0.9rem;">解析度</label>
+                    <select id="qualitySelect" style="padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9rem; background: white;">
+                        <option value="1.5">標準品質 (1.5x)</option>
+                        <option value="2.0" selected>高品質 (2.0x)</option>
+                        <option value="3.0">超高品質 (3.0x)</option>
+                        <option value="4.0">最高品質 (4.0x)</option>
+                    </select>
+                </div>
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-weight: 600; color: #374151; margin-bottom: 8px; font-size: 0.9rem;">輸出格式</label>
+                    <select id="formatSelect" style="padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9rem; background: white;">
+                        <option value="png">PNG (無損壓縮)</option>
+                        <option value="jpeg">JPEG (較小檔案)</option>
+                    </select>
+                </div>
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-weight: 600; color: #374151; margin-bottom: 8px; font-size: 0.9rem;">JPEG品質</label>
+                    <input type="number" id="jpegQuality" min="50" max="100" value="95" style="padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.9rem; background: white;">
+                </div>
+            </div>
+        </div>
+
         <div class="upload-area" id="uploadArea">
             <div class="upload-zone" id="uploadZone">
                 <div class="upload-icon">🔒</div>
@@ -447,6 +473,16 @@
 
         let currentFile = null;
         let unlockedPdfData = null;
+
+        // 品質設定
+        const qualitySelect = document.getElementById('qualitySelect');
+        const formatSelect = document.getElementById('formatSelect');
+        const jpegQualityInput = document.getElementById('jpegQuality');
+
+        // 格式選擇事件
+        formatSelect.addEventListener('change', function() {
+            jpegQualityInput.disabled = this.value === 'png';
+        });
 
         // 事件監聽器
         uploadZone.addEventListener('click', () => fileInput.click());
@@ -559,16 +595,21 @@
                     format: 'a4'
                 });
 
+                // 獲取品質設定
+                const scale = parseFloat(document.getElementById('qualitySelect').value);
+                const format = document.getElementById('formatSelect').value;
+                const jpegQuality = parseInt(document.getElementById('jpegQuality').value) / 100;
+
                 // 獲取第一頁來設定PDF尺寸
                 const firstPage = await pdf.getPage(1);
-                const viewport = firstPage.getViewport({ scale: 1.5 });
+                const viewport = firstPage.getViewport({ scale: scale });
                 
                 // 移除第一頁（jsPDF預設會有一頁）
                 newPdf.deletePage(1);
 
                 for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
-                    const pageViewport = page.getViewport({ scale: 1.5 });
+                    const pageViewport = page.getViewport({ scale: scale });
 
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
@@ -580,13 +621,19 @@
                         viewport: pageViewport
                     }).promise;
 
-                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    // 根據選擇的格式輸出
+                    let imgData;
+                    if (format === 'png') {
+                        imgData = canvas.toDataURL('image/png');
+                    } else {
+                        imgData = canvas.toDataURL('image/jpeg', jpegQuality);
+                    }
                     
                     // 添加頁面
                     newPdf.addPage([pageViewport.width, pageViewport.height]);
                     newPdf.addImage(
                         imgData,
-                        'JPEG',
+                        format === 'png' ? 'PNG' : 'JPEG',
                         0,
                         0,
                         pageViewport.width,
@@ -638,6 +685,14 @@
 
             const fileSizeKB = Math.round(unlockedPdfData.size / 1024);
             const originalSizeKB = Math.round(currentFile.size / 1024);
+            const scale = parseFloat(qualitySelect.value);
+            const format = formatSelect.value.toUpperCase();
+
+            let qualityText = '';
+            if (scale === 1.5) qualityText = '標準品質';
+            else if (scale === 2.0) qualityText = '高品質';
+            else if (scale === 3.0) qualityText = '超高品質';
+            else if (scale === 4.0) qualityText = '最高品質';
 
             fileInfo.innerHTML = `
                 <div class="file-info-row">
@@ -647,6 +702,10 @@
                 <div class="file-info-row">
                     <span class="file-info-label">總頁數</span>
                     <span class="file-info-value">${totalPages} 頁</span>
+                </div>
+                <div class="file-info-row">
+                    <span class="file-info-label">輸出品質</span>
+                    <span class="file-info-value">${qualityText} (${scale}x) | ${format}</span>
                 </div>
                 <div class="file-info-row">
                     <span class="file-info-label">原始大小</span>
