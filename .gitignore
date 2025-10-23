@@ -1,0 +1,34 @@
+# Cursor IDE 設定檔
+.cursor/
+
+# macOS 系統檔案
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS 縮圖
+._*
+
+# macOS 資源分支
+.Spotlight-V100
+.Trashes
+
+# 編輯器和 IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 臨時檔案
+*.tmp
+*.temp
+
+# 日誌檔案
+*.log
+
+# 其他常見忽略項目
+node_modules/
+.env
+.env.local
+
