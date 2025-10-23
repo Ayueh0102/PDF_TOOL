@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 工具集 - 免費線上 PDF 處理工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+
+        .header .description {
+            font-size: 1rem;
+            opacity: 0.85;
+            margin-top: 10px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .tool-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            animation: fadeInUp 0.6s ease;
+            animation-fill-mode: both;
+        }
+
+        .tool-card:nth-child(1) { animation-delay: 0.1s; }
+        .tool-card:nth-child(2) { animation-delay: 0.2s; }
+        .tool-card:nth-child(3) { animation-delay: 0.3s; }
+        .tool-card:nth-child(4) { animation-delay: 0.4s; }
+
+        .tool-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.25);
+        }
+
+        .tool-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+        }
+
+        .tool-card.image-to-pdf .tool-icon { color: #667eea; }
+        .tool-card.pdf-to-png .tool-icon { color: #f093fb; }
+        .tool-card.pdf-unlock .tool-icon { color: #4facfe; }
+        .tool-card.pdf-split .tool-icon { color: #43e97b; }
+
+        .tool-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #2d3748;
+        }
+
+        .tool-description {
+            font-size: 1rem;
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .tool-features {
+            list-style: none;
+            text-align: left;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .tool-features li {
+            font-size: 0.9rem;
+            color: #4a5568;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .tool-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #48bb78;
+            font-weight: bold;
+        }
+
+        .tool-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .tool-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            width: 100%;
+        }
+
+        .footer h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+
+        .footer p {
+            font-size: 1rem;
+            opacity: 0.9;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+
+        .footer .tech-stack {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .tech-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .header .subtitle {
+                font-size: 1rem;
+            }
+
+            .tools-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .tool-card {
+                padding: 30px 20px;
+            }
+
+            .tool-icon {
+                font-size: 3rem;
+            }
+
+            .tool-title {
+                font-size: 1.3rem;
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            margin-left: 10px;
+            font-weight: 500;
+        }
+
+        .new-badge {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 PDF 工具集</h1>
+            <p class="subtitle">免費、快速、安全的 PDF 處理工具</p>
+            <p class="description">
+                所有操作都在您的瀏覽器中完成，文件不會上傳到伺服器，完全保護您的隱私。
+                支援圖片轉換、文件轉換、PDF 解鎖、分頁輸出等多種功能。
+            </p>
+        </div>
+
+        <div class="tools-grid">
+            <!-- 圖片轉 PDF -->
+            <a href="image_to_pdf_converter.html" class="tool-card image-to-pdf">
+                <div class="tool-icon">🖼️</div>
+                <h2 class="tool-title">圖片轉 PDF</h2>
+                <p class="tool-description">
+                    將多張圖片合併成一個 PDF 文件，支援拖放上傳和自訂排序。
+                </p>
+                <ul class="tool-features">
+                    <li>支援多種圖片格式</li>
+                    <li>拖放上傳，簡單易用</li>
+                    <li>自訂圖片順序</li>
+                    <li>調整品質和頁面大小</li>
+                </ul>
+                <button class="tool-button">開始使用 →</button>
+            </a>
+
+            <!-- PDF/Word 轉 PNG -->
+            <a href="pdf_to_png_converter.html" class="tool-card pdf-to-png">
+                <div class="tool-icon">🔄</div>
+                <h2 class="tool-title">PDF/Word 轉 PNG</h2>
+                <p class="tool-description">
+                    將 PDF 或 Word 文件轉換為高品質 PNG 圖片，支援自訂解析度。
+                </p>
+                <ul class="tool-features">
+                    <li>支援 PDF 和 Word 文件</li>
+                    <li>自訂解析度 (72-300 DPI)</li>
+                    <li>批量下載所有頁面</li>
+                    <li>單頁下載選項</li>
+                </ul>
+                <button class="tool-button">開始使用 →</button>
+            </a>
+
+            <!-- PDF 解鎖 -->
+            <a href="pdf_unlock_converter.html" class="tool-card pdf-unlock">
+                <div class="tool-icon">🔓</div>
+                <h2 class="tool-title">PDF 解鎖工具</h2>
+                <p class="tool-description">
+                    解除 PDF 文件的密碼保護，輸出高品質的無密碼 PDF 文件。
+                </p>
+                <ul class="tool-features">
+                    <li>解除密碼保護</li>
+                    <li>300 DPI 高品質輸出</li>
+                    <li>PNG 無損壓縮</li>
+                    <li>保持原始頁面尺寸</li>
+                </ul>
+                <button class="tool-button">開始使用 →</button>
+            </a>
+
+            <!-- PDF 分頁輸出 -->
+            <a href="pdf_split_converter.html" class="tool-card pdf-split">
+                <div class="tool-icon">✂️</div>
+                <h2 class="tool-title">PDF 分頁輸出 <span class="badge new-badge">進階</span></h2>
+                <p class="tool-description">
+                    將 PDF 分割成單獨頁面或自訂分組，支援多種分割模式。
+                </p>
+                <ul class="tool-features">
+                    <li>每頁獨立輸出</li>
+                    <li>每 N 頁分組輸出</li>
+                    <li>指定範圍分割</li>
+                    <li>自訂頁面組合</li>
+                </ul>
+                <button class="tool-button">開始使用 →</button>
+            </a>
+        </div>
+
+        <div class="footer">
+            <h3>✨ 技術特色</h3>
+            <p>
+                🔒 100% 前端處理，保護隱私<br>
+                ⚡ 無需伺服器，即開即用<br>
+                🎨 300 DPI 高品質輸出<br>
+                📱 響應式設計，支援行動裝置
+            </p>
+            <div class="tech-stack">
+                <span class="tech-badge">jsPDF</span>
+                <span class="tech-badge">PDF.js</span>
+                <span class="tech-badge">Mammoth.js</span>
+                <span class="tech-badge">html2canvas</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 為每個工具卡片添加點擊效果
+        document.querySelectorAll('.tool-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                // 如果點擊的是按鈕，讓默認行為處理
+                if (e.target.classList.contains('tool-button')) {
+                    return;
+                }
+                // 添加點擊動畫
+                this.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 150);
+            });
+        });
+
+        // 添加鍵盤導航支持
+        document.addEventListener('keydown', function(e) {
+            const cards = Array.from(document.querySelectorAll('.tool-card'));
+            const currentIndex = cards.findIndex(card => card === document.activeElement);
+            
+            if (e.key === 'ArrowRight' && currentIndex < cards.length - 1) {
+                cards[currentIndex + 1].focus();
+            } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                cards[currentIndex - 1].focus();
+            } else if (e.key === 'Enter' && currentIndex !== -1) {
+                cards[currentIndex].click();
+            }
+        });
+
+        // 控制台輸出歡迎訊息
+        console.log('%c📄 PDF 工具集', 'font-size: 20px; font-weight: bold; color: #667eea;');
+        console.log('%c歡迎使用！所有處理都在您的瀏覽器中完成，保護您的隱私。', 'font-size: 12px; color: #718096;');
+    </script>
+</body>
+</html>
+
