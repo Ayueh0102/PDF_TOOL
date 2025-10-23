@@ -395,7 +395,7 @@
                 </button>
             </div>
 
-            <div class="settings-grid">
+            <div class="settings-grid" id="settingsGrid">
                 <div class="setting-group" id="rangeSettings" style="display: none;">
                     <label class="setting-label">頁面範圍</label>
                     <div class="range-inputs">
@@ -407,6 +407,9 @@
                     <label class="setting-label">自訂頁面（用逗號分隔）</label>
                     <input type="text" class="setting-input" id="customPages" placeholder="例如: 1,3,5,7-10">
                 </div>
+            </div>
+            
+            <div class="settings-grid" style="margin-top: 15px;">
                 <div class="setting-group">
                     <label class="setting-label">輸出格式</label>
                     <select class="setting-select" id="outputFormat">
@@ -414,7 +417,7 @@
                         <option value="combined">合併為單一PDF</option>
                     </select>
                 </div>
-                <div class="setting-group">
+                <div class="setting-group" id="namingGroup">
                     <label class="setting-label">檔案命名</label>
                     <select class="setting-select" id="namingFormat">
                         <option value="numbered">頁碼編號 (page_1.pdf)</option>
@@ -449,7 +452,7 @@
                     <div class="results-info" id="resultsInfo"></div>
                 </div>
                 <div class="action-buttons">
-                    <button class="download-all-btn" id="downloadAllBtn">📦 下載全部</button>
+                    <button class="download-all-btn" id="downloadAllBtn"></button>
                     <button class="reset-btn" id="resetBtn">🔄 重新開始</button>
                 </div>
             </div>
@@ -476,6 +479,15 @@
         let currentMode = 'all';
         let splitPages = [];
         let originalFileName = '';
+
+        const outputFormat = document.getElementById('outputFormat');
+        const namingGroup = document.getElementById('namingGroup');
+
+        // 輸出格式切換事件
+        outputFormat.addEventListener('change', function() {
+            // 合併模式不需要檔案命名選項
+            namingGroup.style.display = this.value === 'combined' ? 'none' : 'flex';
+        });
 
         // 事件監聽器
         uploadZone.addEventListener('click', () => fileInput.click());
@@ -675,7 +687,16 @@
             pagesGrid.innerHTML = '';
             
             const totalSize = splitPages.reduce((sum, page) => sum + page.size, 0);
-            resultsInfo.textContent = `共分割出 ${splitPages.length} 個PDF文件 | 品質: 300 DPI (PNG 無損) | 總大小: ${formatFileSize(totalSize / 1024)}`;
+            const outputFormatValue = document.getElementById('outputFormat').value;
+            
+            // 根據輸出格式設定結果資訊
+            if (outputFormatValue === 'combined') {
+                resultsInfo.textContent = `準備合併 ${splitPages.length} 頁為單一PDF | 品質: 300 DPI (PNG 無損) | 總大小: ${formatFileSize(totalSize / 1024)}`;
+                downloadAllBtn.textContent = '📄 下載合併PDF';
+            } else {
+                resultsInfo.textContent = `共分割出 ${splitPages.length} 個PDF文件 | 品質: 300 DPI (PNG 無損) | 總大小: ${formatFileSize(totalSize / 1024)}`;
+                downloadAllBtn.textContent = '📦 下載全部';
+            }
 
             splitPages.forEach((page, index) => {
                 const pageCard = document.createElement('div');
@@ -714,14 +735,17 @@
         }
 
         function downloadAll() {
-            const namingFormat = document.getElementById('namingFormat').value;
-            const outputFormat = document.getElementById('outputFormat').value;
+            const outputFormatValue = document.getElementById('outputFormat').value;
 
-            if (outputFormat === 'combined') {
+            if (outputFormatValue === 'combined') {
                 // 合併所有頁面為單一PDF
+                console.log('開始合併 PDF，共', splitPages.length, '頁');
                 downloadCombinedPDF();
             } else {
                 // 下載所有獨立PDF
+                const namingFormat = document.getElementById('namingFormat').value;
+                console.log('開始下載獨立 PDF，共', splitPages.length, '個文件');
+                
                 splitPages.forEach((page, index) => {
                     setTimeout(() => {
                         let fileName;
