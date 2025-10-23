@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF解鎖工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .info-panel {
+            padding: 30px 40px;
+            background: #fffbeb;
+            border-bottom: 1px solid #fde68a;
+        }
+
+        .info-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-list {
+            list-style: none;
+            color: #78350f;
+        }
+
+        .info-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .info-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #f59e0b;
+            font-weight: bold;
+        }
+
+        .upload-area {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .upload-zone {
+            border: 3px dashed #d1d5db;
+            border-radius: 15px;
+            padding: 60px 40px;
+            background: #f9fafb;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .upload-zone:hover {
+            border-color: #f59e0b;
+            background: #fffbeb;
+            transform: translateY(-2px);
+        }
+
+        .upload-zone.dragover {
+            border-color: #f59e0b;
+            background: #fffbeb;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #9ca3af;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #374151;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .upload-subtext {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .password-section {
+            padding: 20px 40px;
+            display: none;
+            background: #f8fafc;
+        }
+
+        .password-group {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .password-label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .password-input-wrapper {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .password-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .password-input:focus {
+            outline: none;
+            border-color: #f59e0b;
+        }
+
+        .unlock-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            white-space: nowrap;
+        }
+
+        .unlock-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .unlock-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .password-hint {
+            font-size: 0.85rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .progress-section {
+            padding: 20px 40px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .results-section {
+            padding: 40px;
+            display: none;
+            text-align: center;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .success-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .success-message {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        .file-info {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .file-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .file-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .file-info-label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .file-info-value {
+            color: #6b7280;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3);
+        }
+
+        .reset-btn {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .reset-btn:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 40px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .info-panel, .upload-area, .password-section {
+                padding: 20px;
+            }
+            
+            .upload-zone {
+                padding: 40px 20px;
+            }
+
+            .password-input-wrapper {
+                flex-direction: column;
+            }
+
+            .unlock-btn {
+                width: 100%;
+            }
+
+            .results-section {
+                padding: 20px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .download-btn, .reset-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔓 PDF解鎖工具</h1>
+            <p>輕鬆移除PDF密碼保護，重獲文件自由</p>
+        </div>
+
+        <div class="info-panel">
+            <div class="info-title">
+                <span>ℹ️</span>
+                <span>使用說明</span>
+            </div>
+            <ul class="info-list">
+                <li>支援移除開啟密碼保護的PDF文件</li>
+                <li>純前端處理，您的文件不會上傳到任何伺服器</li>
+                <li>需要知道原始密碼才能解鎖文件</li>
+                <li>解鎖後可下載無密碼保護的新PDF文件</li>
+            </ul>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">🔒</div>
+                <div class="upload-text">點擊選擇受保護的PDF文件</div>
+                <div class="upload-subtext">或拖拽文件到此處</div>
+                <input type="file" class="file-input" id="fileInput" accept=".pdf">
+            </div>
+        </div>
+
+        <div class="password-section" id="passwordSection">
+            <div class="password-group">
+                <label class="password-label">請輸入PDF密碼</label>
+                <div class="password-input-wrapper">
+                    <input type="password" class="password-input" id="passwordInput" placeholder="輸入密碼">
+                    <button class="unlock-btn" id="unlockBtn">🔓 解鎖</button>
+                </div>
+                <div class="password-hint">💡 提示：密碼區分大小寫</div>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="progress-text" id="progressText">正在處理...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="success-icon">✅</div>
+            <div class="success-title">PDF解鎖成功！</div>
+            <div class="success-message">您的PDF文件已成功移除密碼保護</div>
+            
+            <div class="file-info" id="fileInfo"></div>
+            
+            <div class="action-buttons">
+                <button class="download-btn" id="downloadBtn">💾 下載解鎖後的PDF</button>
+                <button class="reset-btn" id="resetBtn">🔄 處理其他文件</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const passwordSection = document.getElementById('passwordSection');
+        const passwordInput = document.getElementById('passwordInput');
+        const unlockBtn = document.getElementById('unlockBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultsSection = document.getElementById('resultsSection');
+        const fileInfo = document.getElementById('fileInfo');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let currentFile = null;
+        let unlockedPdfData = null;
+
+        // 事件監聽器
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', handleDragOver);
+        uploadZone.addEventListener('dragleave', handleDragLeave);
+        uploadZone.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFileSelect);
+        unlockBtn.addEventListener('click', unlockPDF);
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') unlockPDF();
+        });
+        downloadBtn.addEventListener('click', downloadPDF);
+        resetBtn.addEventListener('click', resetApp);
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        async function processFile(file) {
+            if (file.type !== 'application/pdf') {
+                showError('請選擇PDF文件！');
+                return;
+            }
+
+            currentFile = file;
+            
+            // 檢查PDF是否有密碼保護
+            const arrayBuffer = await file.arrayBuffer();
+            
+            try {
+                // 嘗試不使用密碼載入
+                await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                // 如果成功載入，表示沒有密碼保護
+                showError('此PDF文件沒有密碼保護，無需解鎖！');
+                currentFile = null;
+                return;
+            } catch (error) {
+                // 如果載入失敗，檢查是否因為密碼保護
+                if (error.name === 'PasswordException') {
+                    uploadArea.style.display = 'none';
+                    passwordSection.style.display = 'block';
+                    passwordInput.focus();
+                } else {
+                    showError('PDF文件讀取失敗，請確認文件是否損壞！');
+                    currentFile = null;
+                }
+            }
+        }
+
+        async function unlockPDF() {
+            const password = passwordInput.value.trim();
+            
+            if (!password) {
+                showError('請輸入密碼！');
+                return;
+            }
+
+            if (!currentFile) {
+                showError('請先選擇PDF文件！');
+                return;
+            }
+
+            try {
+                progressSection.style.display = 'block';
+                passwordSection.style.display = 'none';
+                progressText.textContent = '正在驗證密碼...';
+                progressFill.style.width = '20%';
+
+                const arrayBuffer = await currentFile.arrayBuffer();
+                
+                // 使用密碼載入PDF
+                const loadingTask = pdfjsLib.getDocument({
+                    data: arrayBuffer,
+                    password: password
+                });
+
+                const pdf = await loadingTask.promise;
+                const totalPages = pdf.numPages;
+
+                progressText.textContent = `正在處理 ${totalPages} 頁...`;
+                progressFill.style.width = '40%';
+
+                // 創建新的無密碼PDF
+                const newPdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'pt',
+                    format: 'a4'
+                });
+
+                // 獲取第一頁來設定PDF尺寸
+                const firstPage = await pdf.getPage(1);
+                const viewport = firstPage.getViewport({ scale: 1.5 });
+                
+                // 移除第一頁（jsPDF預設會有一頁）
+                newPdf.deletePage(1);
+
+                for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const pageViewport = page.getViewport({ scale: 1.5 });
+
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = pageViewport.width;
+                    canvas.height = pageViewport.height;
+
+                    await page.render({
+                        canvasContext: context,
+                        viewport: pageViewport
+                    }).promise;
+
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    
+                    // 添加頁面
+                    newPdf.addPage([pageViewport.width, pageViewport.height]);
+                    newPdf.addImage(
+                        imgData,
+                        'JPEG',
+                        0,
+                        0,
+                        pageViewport.width,
+                        pageViewport.height,
+                        undefined,
+                        'FAST'
+                    );
+
+                    // 更新進度
+                    const progress = 40 + (pageNum / totalPages) * 50;
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = `正在處理第 ${pageNum}/${totalPages} 頁...`;
+                }
+
+                // 刪除最後一個空白頁
+                const pageCount = newPdf.getNumberOfPages();
+                if (pageCount > totalPages) {
+                    newPdf.deletePage(pageCount);
+                }
+
+                progressFill.style.width = '100%';
+                progressText.textContent = '處理完成！';
+
+                // 保存PDF數據
+                unlockedPdfData = newPdf.output('blob');
+
+                // 顯示結果
+                displayResults(totalPages);
+
+            } catch (error) {
+                console.error('PDF解鎖錯誤:', error);
+                
+                if (error.name === 'PasswordException' || error.message.includes('password')) {
+                    showError('密碼錯誤，請重新輸入！');
+                    passwordSection.style.display = 'block';
+                    progressSection.style.display = 'none';
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                } else {
+                    showError('PDF處理失敗，請確認文件是否完整！');
+                    resetApp();
+                }
+            }
+        }
+
+        function displayResults(totalPages) {
+            progressSection.style.display = 'none';
+            resultsSection.style.display = 'block';
+
+            const fileSizeKB = Math.round(unlockedPdfData.size / 1024);
+            const originalSizeKB = Math.round(currentFile.size / 1024);
+
+            fileInfo.innerHTML = `
+                <div class="file-info-row">
+                    <span class="file-info-label">原始文件名稱</span>
+                    <span class="file-info-value">${currentFile.name}</span>
+                </div>
+                <div class="file-info-row">
+                    <span class="file-info-label">總頁數</span>
+                    <span class="file-info-value">${totalPages} 頁</span>
+                </div>
+                <div class="file-info-row">
+                    <span class="file-info-label">原始大小</span>
+                    <span class="file-info-value">${formatFileSize(originalSizeKB)}</span>
+                </div>
+                <div class="file-info-row">
+                    <span class="file-info-label">解鎖後大小</span>
+                    <span class="file-info-value">${formatFileSize(fileSizeKB)}</span>
+                </div>
+                <div class="file-info-row">
+                    <span class="file-info-label">安全狀態</span>
+                    <span class="file-info-value" style="color: #059669; font-weight: 600;">✓ 已移除密碼保護</span>
+                </div>
+            `;
+        }
+
+        function downloadPDF() {
+            if (!unlockedPdfData) return;
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(unlockedPdfData);
+            link.download = currentFile.name.replace('.pdf', '_unlocked.pdf');
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function resetApp() {
+            currentFile = null;
+            unlockedPdfData = null;
+            fileInput.value = '';
+            passwordInput.value = '';
+            uploadArea.style.display = 'block';
+            passwordSection.style.display = 'none';
+            progressSection.style.display = 'none';
+            resultsSection.style.display = 'none';
+            errorMessage.style.display = 'none';
+            progressFill.style.width = '0%';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function formatFileSize(kb) {
+            if (kb < 1024) {
+                return kb + ' KB';
+            }
+            return (kb / 1024).toFixed(2) + ' MB';
+        }
+    </script>
+</body>
+</html>
+

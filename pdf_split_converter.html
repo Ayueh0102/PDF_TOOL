@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF分頁輸出工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .settings-panel {
+            padding: 30px 40px;
+            background: #fdf4ff;
+            border-bottom: 1px solid #f5d0fe;
+        }
+
+        .settings-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .setting-label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .setting-select, .setting-input {
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+
+        .setting-select:focus, .setting-input:focus {
+            outline: none;
+            border-color: #ec4899;
+        }
+
+        .range-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .upload-area {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .upload-zone {
+            border: 3px dashed #d1d5db;
+            border-radius: 15px;
+            padding: 60px 40px;
+            background: #f9fafb;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .upload-zone:hover {
+            border-color: #ec4899;
+            background: #fdf2f8;
+            transform: translateY(-2px);
+        }
+
+        .upload-zone.dragover {
+            border-color: #ec4899;
+            background: #fdf2f8;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #9ca3af;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #374151;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .upload-subtext {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .progress-section {
+            padding: 20px 40px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ec4899, #8b5cf6);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .results-section {
+            padding: 40px;
+            display: none;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .results-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .results-info {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .download-all-btn {
+            background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .download-all-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3);
+        }
+
+        .reset-btn {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .reset-btn:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .page-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .page-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .page-preview {
+            width: 100%;
+            height: 300px;
+            object-fit: contain;
+            background: #f8fafc;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .page-info {
+            padding: 15px;
+        }
+
+        .page-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .page-details {
+            font-size: 0.8rem;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .download-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(236, 72, 153, 0.3);
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 40px;
+            display: none;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .mode-btn.active {
+            border-color: #ec4899;
+            background: #fdf2f8;
+            color: #ec4899;
+        }
+
+        .mode-btn:hover {
+            border-color: #ec4899;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .settings-panel, .upload-area, .results-section {
+                padding: 20px;
+            }
+            
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .upload-zone {
+                padding: 40px 20px;
+            }
+
+            .pages-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 15px;
+            }
+
+            .results-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✂️ PDF分頁輸出工具</h1>
+            <p>將PDF文件拆分成單獨的頁面或指定範圍</p>
+        </div>
+
+        <div class="settings-panel">
+            <div class="settings-title">⚙️ 分割設定</div>
+            
+            <div class="mode-toggle">
+                <button class="mode-btn active" data-mode="all" onclick="setMode('all')">
+                    📚 分割全部頁面
+                </button>
+                <button class="mode-btn" data-mode="range" onclick="setMode('range')">
+                    📖 指定頁面範圍
+                </button>
+                <button class="mode-btn" data-mode="custom" onclick="setMode('custom')">
+                    🎯 自訂頁面
+                </button>
+            </div>
+
+            <div class="settings-grid">
+                <div class="setting-group" id="rangeSettings" style="display: none;">
+                    <label class="setting-label">頁面範圍</label>
+                    <div class="range-inputs">
+                        <input type="number" class="setting-input" id="startPage" min="1" placeholder="起始頁" value="1">
+                        <input type="number" class="setting-input" id="endPage" min="1" placeholder="結束頁">
+                    </div>
+                </div>
+                <div class="setting-group" id="customSettings" style="display: none;">
+                    <label class="setting-label">自訂頁面（用逗號分隔）</label>
+                    <input type="text" class="setting-input" id="customPages" placeholder="例如: 1,3,5,7-10">
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">輸出格式</label>
+                    <select class="setting-select" id="outputFormat">
+                        <option value="separate">每頁獨立PDF</option>
+                        <option value="combined">合併為單一PDF</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">檔案命名</label>
+                    <select class="setting-select" id="namingFormat">
+                        <option value="numbered">頁碼編號 (page_1.pdf)</option>
+                        <option value="original">原始名稱_頁碼</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-area">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">點擊選擇PDF文件</div>
+                <div class="upload-subtext">或拖拽文件到此處</div>
+                <input type="file" class="file-input" id="fileInput" accept=".pdf">
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="progress-text" id="progressText">正在處理...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="results-header">
+                <div>
+                    <div class="results-title">分割結果</div>
+                    <div class="results-info" id="resultsInfo"></div>
+                </div>
+                <div class="action-buttons">
+                    <button class="download-all-btn" id="downloadAllBtn">📦 下載全部</button>
+                    <button class="reset-btn" id="resetBtn">🔄 重新開始</button>
+                </div>
+            </div>
+            <div class="pages-grid" id="pagesGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const progressSection = document.getElementById('progressSection');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultsSection = document.getElementById('resultsSection');
+        const pagesGrid = document.getElementById('pagesGrid');
+        const resultsInfo = document.getElementById('resultsInfo');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let currentMode = 'all';
+        let splitPages = [];
+        let originalFileName = '';
+
+        // 事件監聽器
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', handleDragOver);
+        uploadZone.addEventListener('dragleave', handleDragLeave);
+        uploadZone.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFileSelect);
+        downloadAllBtn.addEventListener('click', downloadAll);
+        resetBtn.addEventListener('click', resetApp);
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+            document.getElementById('rangeSettings').style.display = mode === 'range' ? 'block' : 'none';
+            document.getElementById('customSettings').style.display = mode === 'custom' ? 'block' : 'none';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        async function processFile(file) {
+            if (file.type !== 'application/pdf') {
+                showError('請選擇PDF文件！');
+                return;
+            }
+
+            originalFileName = file.name.replace('.pdf', '');
+
+            try {
+                progressSection.style.display = 'block';
+                resultsSection.style.display = 'none';
+                splitPages = [];
+
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const totalPages = pdf.numPages;
+
+                // 更新結束頁的最大值
+                document.getElementById('endPage').max = totalPages;
+                document.getElementById('endPage').value = totalPages;
+
+                // 確定要處理的頁面
+                let pagesToProcess = [];
+                
+                if (currentMode === 'all') {
+                    pagesToProcess = Array.from({ length: totalPages }, (_, i) => i + 1);
+                } else if (currentMode === 'range') {
+                    const start = parseInt(document.getElementById('startPage').value) || 1;
+                    const end = parseInt(document.getElementById('endPage').value) || totalPages;
+                    if (start > end || start < 1 || end > totalPages) {
+                        showError('頁面範圍設定錯誤！');
+                        progressSection.style.display = 'none';
+                        return;
+                    }
+                    pagesToProcess = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+                } else if (currentMode === 'custom') {
+                    const customInput = document.getElementById('customPages').value;
+                    pagesToProcess = parseCustomPages(customInput, totalPages);
+                    if (pagesToProcess.length === 0) {
+                        showError('自訂頁面格式錯誤！');
+                        progressSection.style.display = 'none';
+                        return;
+                    }
+                }
+
+                progressText.textContent = `正在分割 ${pagesToProcess.length} 頁...`;
+
+                // 處理每一頁
+                for (let i = 0; i < pagesToProcess.length; i++) {
+                    const pageNum = pagesToProcess[i];
+                    const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 1.5 });
+
+                    // 渲染到canvas
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    }).promise;
+
+                    // 創建PDF
+                    const newPdf = new jsPDF({
+                        orientation: viewport.width > viewport.height ? 'landscape' : 'portrait',
+                        unit: 'pt',
+                        format: [viewport.width, viewport.height]
+                    });
+
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    newPdf.addImage(imgData, 'JPEG', 0, 0, viewport.width, viewport.height);
+
+                    // 保存頁面數據
+                    const pdfBlob = newPdf.output('blob');
+                    const previewUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+                    splitPages.push({
+                        pageNum: pageNum,
+                        blob: pdfBlob,
+                        previewUrl: previewUrl,
+                        size: pdfBlob.size,
+                        dimensions: `${Math.round(viewport.width)}×${Math.round(viewport.height)}`
+                    });
+
+                    // 更新進度
+                    const progress = ((i + 1) / pagesToProcess.length) * 100;
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = `已處理 ${i + 1}/${pagesToProcess.length} 頁`;
+                }
+
+                displayResults();
+                progressSection.style.display = 'none';
+                resultsSection.style.display = 'block';
+
+            } catch (error) {
+                console.error('PDF分割錯誤:', error);
+                showError('PDF處理失敗，請確認文件是否有效！');
+                progressSection.style.display = 'none';
+            }
+        }
+
+        function parseCustomPages(input, maxPage) {
+            const pages = new Set();
+            const parts = input.split(',');
+
+            for (let part of parts) {
+                part = part.trim();
+                if (part.includes('-')) {
+                    const [start, end] = part.split('-').map(n => parseInt(n.trim()));
+                    if (!isNaN(start) && !isNaN(end) && start >= 1 && end <= maxPage && start <= end) {
+                        for (let i = start; i <= end; i++) {
+                            pages.add(i);
+                        }
+                    }
+                } else {
+                    const pageNum = parseInt(part);
+                    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= maxPage) {
+                        pages.add(pageNum);
+                    }
+                }
+            }
+
+            return Array.from(pages).sort((a, b) => a - b);
+        }
+
+        function displayResults() {
+            pagesGrid.innerHTML = '';
+            
+            const totalSize = splitPages.reduce((sum, page) => sum + page.size, 0);
+            resultsInfo.textContent = `共分割出 ${splitPages.length} 個PDF文件 | 總大小: ${formatFileSize(totalSize / 1024)}`;
+
+            splitPages.forEach((page, index) => {
+                const pageCard = document.createElement('div');
+                pageCard.className = 'page-card';
+                
+                const namingFormat = document.getElementById('namingFormat').value;
+                let fileName;
+                if (namingFormat === 'numbered') {
+                    fileName = `page_${page.pageNum}.pdf`;
+                } else {
+                    fileName = `${originalFileName}_page_${page.pageNum}.pdf`;
+                }
+
+                pageCard.innerHTML = `
+                    <img src="${page.previewUrl}" alt="Page ${page.pageNum}" class="page-preview">
+                    <div class="page-info">
+                        <div class="page-title">第 ${page.pageNum} 頁</div>
+                        <div class="page-details">${page.dimensions} | ${formatFileSize(page.size / 1024)}</div>
+                        <button class="download-btn" onclick="downloadPage(${index}, '${fileName}')">
+                            💾 下載PDF
+                        </button>
+                    </div>
+                `;
+                
+                pagesGrid.appendChild(pageCard);
+            });
+        }
+
+        function downloadPage(index, fileName) {
+            const page = splitPages[index];
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(page.blob);
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function downloadAll() {
+            const namingFormat = document.getElementById('namingFormat').value;
+            const outputFormat = document.getElementById('outputFormat').value;
+
+            if (outputFormat === 'combined') {
+                // 合併所有頁面為單一PDF
+                downloadCombinedPDF();
+            } else {
+                // 下載所有獨立PDF
+                splitPages.forEach((page, index) => {
+                    setTimeout(() => {
+                        let fileName;
+                        if (namingFormat === 'numbered') {
+                            fileName = `page_${page.pageNum}.pdf`;
+                        } else {
+                            fileName = `${originalFileName}_page_${page.pageNum}.pdf`;
+                        }
+                        downloadPage(index, fileName);
+                    }, index * 300);
+                });
+            }
+        }
+
+        async function downloadCombinedPDF() {
+            progressSection.style.display = 'block';
+            progressText.textContent = '正在合併PDF...';
+            
+            try {
+                // 使用第一頁的尺寸
+                const firstPage = splitPages[0];
+                const tempImg = new Image();
+                tempImg.src = firstPage.previewUrl;
+                await new Promise(resolve => tempImg.onload = resolve);
+
+                const pdf = new jsPDF({
+                    orientation: tempImg.width > tempImg.height ? 'landscape' : 'portrait',
+                    unit: 'pt',
+                    format: [tempImg.width, tempImg.height]
+                });
+
+                for (let i = 0; i < splitPages.length; i++) {
+                    if (i > 0) {
+                        const img = new Image();
+                        img.src = splitPages[i].previewUrl;
+                        await new Promise(resolve => img.onload = resolve);
+                        pdf.addPage([img.width, img.height]);
+                    }
+                    
+                    pdf.addImage(
+                        splitPages[i].previewUrl,
+                        'JPEG',
+                        0, 0,
+                        tempImg.width, tempImg.height
+                    );
+
+                    progressFill.style.width = ((i + 1) / splitPages.length * 100) + '%';
+                }
+
+                pdf.save(`${originalFileName}_split.pdf`);
+                progressSection.style.display = 'none';
+            } catch (error) {
+                console.error('合併錯誤:', error);
+                showError('PDF合併失敗！');
+                progressSection.style.display = 'none';
+            }
+        }
+
+        function resetApp() {
+            splitPages = [];
+            originalFileName = '';
+            fileInput.value = '';
+            progressSection.style.display = 'none';
+            resultsSection.style.display = 'none';
+            errorMessage.style.display = 'none';
+            progressFill.style.width = '0%';
+            pagesGrid.innerHTML = '';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function formatFileSize(kb) {
+            if (kb < 1024) {
+                return kb.toFixed(2) + ' KB';
+            }
+            return (kb / 1024).toFixed(2) + ' MB';
+        }
+    </script>
+</body>
+</html>
+
