@@ -377,7 +377,7 @@
     <div class="container">
         <div class="header">
             <h1>✂️ PDF分頁輸出工具</h1>
-            <p>將PDF文件拆分成單獨的頁面或指定範圍</p>
+            <p>將PDF文件拆分成單獨的頁面或指定範圍 | 自動使用 300 DPI 印刷級品質</p>
         </div>
 
         <div class="settings-panel">
@@ -570,43 +570,64 @@
 
                 progressText.textContent = `正在分割 ${pagesToProcess.length} 頁...`;
 
+                // 使用 300 DPI 高品質設定
+                const targetDPI = 300;
+                const baseDPI = 72;
+                const scale = targetDPI / baseDPI; // 4.17x
+                
+                console.log(`使用 ${targetDPI} DPI 品質 (scale: ${scale}x)`);
+
                 // 處理每一頁
                 for (let i = 0; i < pagesToProcess.length; i++) {
                     const pageNum = pagesToProcess[i];
                     const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: 1.5 });
+                    
+                    // 獲取原始尺寸
+                    const originalViewport = page.getViewport({ scale: 1.0 });
+                    // 獲取高解析度視圖
+                    const viewport = page.getViewport({ scale: scale });
 
-                    // 渲染到canvas
+                    // 渲染到高解析度 canvas
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
 
+                    // 使用高品質渲染設定
+                    context.imageSmoothingEnabled = true;
+                    context.imageSmoothingQuality = 'high';
+
                     await page.render({
                         canvasContext: context,
-                        viewport: viewport
+                        viewport: viewport,
+                        intent: 'print'  // 印刷模式
                     }).promise;
 
-                    // 創建PDF
+                    // 創建PDF（使用原始尺寸）
                     const newPdf = new jsPDF({
-                        orientation: viewport.width > viewport.height ? 'landscape' : 'portrait',
+                        orientation: originalViewport.width > originalViewport.height ? 'landscape' : 'portrait',
                         unit: 'pt',
-                        format: [viewport.width, viewport.height]
+                        format: [originalViewport.width, originalViewport.height],
+                        compress: false
                     });
 
-                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                    newPdf.addImage(imgData, 'JPEG', 0, 0, viewport.width, viewport.height);
+                    // 轉換為 PNG（無損）
+                    const imgData = canvas.toDataURL('image/png', 1.0);
+                    newPdf.addImage(imgData, 'PNG', 0, 0, originalViewport.width, originalViewport.height, undefined, 'SLOW');
 
                     // 保存頁面數據
                     const pdfBlob = newPdf.output('blob');
-                    const previewUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    const previewUrl = canvas.toDataURL('image/png', 0.3); // 預覽用較低品質以節省記憶體
 
                     splitPages.push({
                         pageNum: pageNum,
                         blob: pdfBlob,
                         previewUrl: previewUrl,
+                        highQualityImg: imgData, // 保存高品質圖片用於合併
                         size: pdfBlob.size,
-                        dimensions: `${Math.round(viewport.width)}×${Math.round(viewport.height)}`
+                        dimensions: `${Math.round(originalViewport.width)}×${Math.round(originalViewport.height)}`,
+                        originalWidth: originalViewport.width,
+                        originalHeight: originalViewport.height
                     });
 
                     // 更新進度
@@ -654,7 +675,7 @@
             pagesGrid.innerHTML = '';
             
             const totalSize = splitPages.reduce((sum, page) => sum + page.size, 0);
-            resultsInfo.textContent = `共分割出 ${splitPages.length} 個PDF文件 | 總大小: ${formatFileSize(totalSize / 1024)}`;
+            resultsInfo.textContent = `共分割出 ${splitPages.length} 個PDF文件 | 品質: 300 DPI (PNG 無損) | 總大小: ${formatFileSize(totalSize / 1024)}`;
 
             splitPages.forEach((page, index) => {
                 const pageCard = document.createElement('div');
@@ -720,41 +741,57 @@
             progressText.textContent = '正在合併PDF...';
             
             try {
-                // 使用第一頁的尺寸
-                const firstPage = splitPages[0];
-                const tempImg = new Image();
-                tempImg.src = firstPage.previewUrl;
-                await new Promise(resolve => tempImg.onload = resolve);
-
-                const pdf = new jsPDF({
-                    orientation: tempImg.width > tempImg.height ? 'landscape' : 'portrait',
+                // 創建新的合併 PDF
+                const mergedPdf = new jsPDF({
+                    orientation: 'portrait',
                     unit: 'pt',
-                    format: [tempImg.width, tempImg.height]
+                    compress: false
                 });
 
+                // 刪除預設頁
+                mergedPdf.deletePage(1);
+
                 for (let i = 0; i < splitPages.length; i++) {
-                    if (i > 0) {
-                        const img = new Image();
-                        img.src = splitPages[i].previewUrl;
-                        await new Promise(resolve => img.onload = resolve);
-                        pdf.addPage([img.width, img.height]);
-                    }
+                    const pageData = splitPages[i];
                     
-                    pdf.addImage(
-                        splitPages[i].previewUrl,
-                        'JPEG',
+                    // 使用保存的原始尺寸
+                    const width = pageData.originalWidth;
+                    const height = pageData.originalHeight;
+
+                    // 添加新頁面
+                    mergedPdf.addPage([width, height]);
+                    
+                    // 使用高品質圖片數據
+                    mergedPdf.addImage(
+                        pageData.highQualityImg,
+                        'PNG',
                         0, 0,
-                        tempImg.width, tempImg.height
+                        width, height,
+                        undefined,
+                        'SLOW'
                     );
 
+                    // 更新進度
                     progressFill.style.width = ((i + 1) / splitPages.length * 100) + '%';
+                    progressText.textContent = `正在合併第 ${i + 1}/${splitPages.length} 頁...`;
+                    
+                    // 讓 UI 有時間更新
+                    await new Promise(resolve => setTimeout(resolve, 10));
                 }
 
-                pdf.save(`${originalFileName}_split.pdf`);
+                // 刪除可能多餘的頁面
+                const pageCount = mergedPdf.getNumberOfPages();
+                if (pageCount > splitPages.length) {
+                    mergedPdf.deletePage(pageCount);
+                }
+
+                // 保存合併後的 PDF
+                mergedPdf.save(`${originalFileName}_merged.pdf`);
                 progressSection.style.display = 'none';
+                
             } catch (error) {
                 console.error('合併錯誤:', error);
-                showError('PDF合併失敗！');
+                showError('PDF合併失敗：' + error.message);
                 progressSection.style.display = 'none';
             }
         }
