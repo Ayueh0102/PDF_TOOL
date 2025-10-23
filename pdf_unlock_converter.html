@@ -447,7 +447,6 @@
 
         let currentFile = null;
         let unlockedPdfData = null;
-        let originalArrayBuffer = null;
 
         // 事件監聽器
         uploadZone.addEventListener('click', () => fileInput.click());
@@ -496,17 +495,16 @@
 
             currentFile = file;
             
-            // 檢查PDF是否有密碼保護
-            originalArrayBuffer = await file.arrayBuffer();
-            
             try {
+                // 檢查PDF是否有密碼保護
+                const arrayBuffer = await file.arrayBuffer();
+                
                 // 嘗試不使用密碼載入
-                await pdfjsLib.getDocument({ data: originalArrayBuffer }).promise;
+                await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 
                 // 如果成功載入，表示沒有密碼保護
                 showError('此PDF文件沒有密碼保護，無需解鎖！');
                 currentFile = null;
-                originalArrayBuffer = null;
                 return;
             } catch (error) {
                 // 如果載入失敗，檢查是否因為密碼保護
@@ -517,7 +515,6 @@
                 } else {
                     showError('PDF文件讀取失敗，請確認文件是否損壞！');
                     currentFile = null;
-                    originalArrayBuffer = null;
                 }
             }
         }
@@ -541,9 +538,12 @@
                 progressText.textContent = '正在驗證密碼...';
                 progressFill.style.width = '20%';
 
+                // 重新讀取文件（避免 ArrayBuffer detached 錯誤）
+                const arrayBuffer = await currentFile.arrayBuffer();
+
                 // 使用密碼載入PDF
                 const loadingTask = pdfjsLib.getDocument({
-                    data: originalArrayBuffer,
+                    data: arrayBuffer,
                     password: password
                 });
 
@@ -699,7 +699,6 @@
         function resetApp() {
             currentFile = null;
             unlockedPdfData = null;
-            originalArrayBuffer = null;
             fileInput.value = '';
             passwordInput.value = '';
             uploadArea.style.display = 'block';
