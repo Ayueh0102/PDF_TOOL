@@ -379,7 +379,7 @@
                 <li>支援移除開啟密碼保護的PDF文件</li>
                 <li>純前端處理，您的文件不會上傳到任何伺服器</li>
                 <li>需要知道原始密碼才能解鎖文件</li>
-                <li>✨ 完全保留原始品質，無損解鎖（文字、圖片、向量圖形）</li>
+                <li>✨ 自動使用 300 DPI 印刷級品質輸出（PNG 無損格式）</li>
             </ul>
         </div>
 
@@ -553,18 +553,20 @@
                 progressText.textContent = `密碼正確！正在處理 ${totalPages} 頁...`;
                 progressFill.style.width = '30%';
 
-                // 使用 3.0x 高解析度和 PNG 格式
-                const scale = 3.0;
+                // 計算最佳 DPI/Scale
+                // 目標：輸出 300 DPI 的高品質圖片
+                // PDF.js 預設 72 DPI，所以 scale = 300/72 ≈ 4.17
+                const targetDPI = 300; // 印刷級品質
+                const baseDPI = 72;    // PDF.js 預設 DPI
+                const scale = targetDPI / baseDPI;
                 
-                // 獲取第一頁來設定PDF尺寸
-                const firstPage = await pdf.getPage(1);
-                const firstViewport = firstPage.getViewport({ scale: 1.0 });
+                console.log(`使用 ${targetDPI} DPI 品質 (scale: ${scale}x)`);
                 
-                // 創建新的PDF (使用原始尺寸)
+                // 創建新的PDF
                 const newPdf = new jsPDF({
-                    orientation: firstViewport.width > firstViewport.height ? 'landscape' : 'portrait',
+                    orientation: 'portrait',
                     unit: 'pt',
-                    format: [firstViewport.width, firstViewport.height]
+                    compress: false  // 不壓縮以保持品質
                 });
 
                 // 移除預設頁
@@ -572,8 +574,12 @@
 
                 for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: scale });
+                    
+                    // 獲取原始尺寸（72 DPI）
                     const originalViewport = page.getViewport({ scale: 1.0 });
+                    
+                    // 獲取高解析度視圖（300 DPI）
+                    const viewport = page.getViewport({ scale: scale });
 
                     // 創建高解析度 canvas
                     const canvas = document.createElement('canvas');
@@ -581,19 +587,24 @@
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
 
+                    // 使用高品質渲染設定
+                    context.imageSmoothingEnabled = true;
+                    context.imageSmoothingQuality = 'high';
+
                     // 渲染頁面
                     await page.render({
                         canvasContext: context,
-                        viewport: viewport
+                        viewport: viewport,
+                        intent: 'print'  // 使用印刷模式獲得更好品質
                     }).promise;
 
                     // 轉換為 PNG（無損）
-                    const imgData = canvas.toDataURL('image/png');
+                    const imgData = canvas.toDataURL('image/png', 1.0);
                     
                     // 添加新頁面（使用原始尺寸）
                     newPdf.addPage([originalViewport.width, originalViewport.height]);
                     
-                    // 添加高解析度圖片
+                    // 添加高解析度圖片（會自動縮放到頁面尺寸）
                     newPdf.addImage(
                         imgData,
                         'PNG',
@@ -602,7 +613,7 @@
                         originalViewport.width,
                         originalViewport.height,
                         undefined,
-                        'FAST'
+                        'SLOW'  // 使用慢速但高品質的壓縮
                     );
 
                     // 更新進度
@@ -669,7 +680,7 @@
                 </div>
                 <div class="file-info-row">
                     <span class="file-info-label">輸出品質</span>
-                    <span class="file-info-value" style="color: #059669; font-weight: 600;">✨ 高品質 (3.0x PNG 無損)</span>
+                    <span class="file-info-value" style="color: #059669; font-weight: 600;">✨ 印刷級品質 (300 DPI | PNG 無損)</span>
                 </div>
                 <div class="file-info-row">
                     <span class="file-info-label">原始大小</span>
