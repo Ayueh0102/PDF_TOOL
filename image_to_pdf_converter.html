@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片轉PDF轉換器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .settings-panel {
+            padding: 30px 40px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .settings-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            align-items: end;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .setting-label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .setting-select, .setting-input {
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+
+        .setting-select:focus, .setting-input:focus {
+            outline: none;
+            border-color: #059669;
+        }
+
+        .upload-area {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .upload-zone {
+            border: 3px dashed #d1d5db;
+            border-radius: 15px;
+            padding: 60px 40px;
+            background: #f9fafb;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .upload-zone:hover {
+            border-color: #059669;
+            background: #f0fdf4;
+            transform: translateY(-2px);
+        }
+
+        .upload-zone.dragover {
+            border-color: #059669;
+            background: #f0fdf4;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #9ca3af;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #374151;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .upload-subtext {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .supported-formats {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .format-badge {
+            background: linear-gradient(135deg, #059669, #0d9488);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .images-section {
+            padding: 40px;
+            display: none;
+        }
+
+        .images-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .images-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .images-info {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .add-more-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .add-more-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .generate-pdf-btn {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .generate-pdf-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(220, 38, 38, 0.3);
+        }
+
+        .clear-btn {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .clear-btn:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .image-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+            cursor: grab;
+        }
+
+        .image-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .image-card.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+            cursor: grabbing;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            background: #f8fafc;
+        }
+
+        .image-info {
+            padding: 15px;
+        }
+
+        .image-name {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .image-details {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+
+        .image-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .move-btn, .remove-btn {
+            flex: 1;
+            padding: 6px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .move-btn {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .move-btn:hover {
+            background: #d1d5db;
+        }
+
+        .remove-btn {
+            background: #fecaca;
+            color: #dc2626;
+        }
+
+        .remove-btn:hover {
+            background: #fca5a5;
+        }
+
+        .page-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .progress-section {
+            padding: 20px 40px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #059669, #0d9488);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 40px;
+            display: none;
+        }
+
+        .drop-zone-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(5, 150, 105, 0.1);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .drop-zone-text {
+            background: rgba(5, 150, 105, 0.9);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 20px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .settings-panel {
+                padding: 20px;
+            }
+            
+            .settings-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .upload-area {
+                padding: 20px;
+            }
+            
+            .upload-zone {
+                padding: 40px 20px;
+            }
+            
+            .images-section {
+                padding: 20px;
+            }
+            
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+            
+            .images-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .action-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖼️➡️📄 圖片轉PDF轉換器</h1>
+            <p>輕鬆將多張圖片合併成一個PDF文件</p>
+        </div>
+
+        <div class="settings-panel">
+            <div class="settings-title">⚙️ PDF設定</div>
+            <div class="settings-grid">
+                <div class="setting-group">
+                    <label class="setting-label">頁面大小</label>
+                    <select class="setting-select" id="pageSizeSelect">
+                        <option value="a4">A4 (210×297mm)</option>
+                        <option value="a3">A3 (297×420mm)</option>
+                        <option value="a5">A5 (148×210mm)</option>
+                        <option value="letter">Letter (216×279mm)</option>
+                        <option value="legal">Legal (216×356mm)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">頁面方向</label>
+                    <select class="setting-select" id="orientationSelect">
+                        <option value="portrait">直向 (Portrait)</option>
+                        <option value="landscape">橫向 (Landscape)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">圖片縮放</label>
+                    <select class="setting-select" id="scaleSelect">
+                        <option value="fit">適應頁面</option>
+                        <option value="fill">填滿頁面</option>
+                        <option value="original">保持原始大小</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">邊距 (mm)</label>
+                    <input type="number" class="setting-input" id="marginInput" min="0" max="50" value="10">
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">PDF品質</label>
+                    <select class="setting-select" id="qualitySelect">
+                        <option value="0.7">標準品質</option>
+                        <option value="0.9">高品質</option>
+                        <option value="1.0">最高品質</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">🖼️</div>
+                <div class="upload-text">點擊選擇圖片或拖拽到此處</div>
+                <div class="upload-subtext">支援多張圖片選擇，可拖拽調整順序</div>
+                <input type="file" class="file-input" id="fileInput" accept="image/*" multiple>
+            </div>
+            <div class="supported-formats">
+                <span class="format-badge">JPG</span>
+                <span class="format-badge">PNG</span>
+                <span class="format-badge">GIF</span>
+                <span class="format-badge">BMP</span>
+                <span class="format-badge">WebP</span>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="progress-text" id="progressText">正在生成PDF...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="images-section" id="imagesSection">
+            <div class="images-header">
+                <div>
+                    <div class="images-title">圖片預覽</div>
+                    <div class="images-info" id="imagesInfo">拖拽圖片可調整PDF中的頁面順序</div>
+                </div>
+                <div class="action-buttons">
+                    <button class="add-more-btn" id="addMoreBtn">➕ 添加更多</button>
+                    <button class="generate-pdf-btn" id="generatePdfBtn">📄 生成PDF</button>
+                    <button class="clear-btn" id="clearBtn">🗑️ 清空</button>
+                </div>
+            </div>
+            <div class="images-grid" id="imagesGrid"></div>
+        </div>
+    </div>
+
+    <div class="drop-zone-indicator" id="dropZoneIndicator">
+        <div class="drop-zone-text">🖼️ 將圖片拖放到此處</div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        
+        const uploadZone = document.getElementById('uploadZone');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const imagesSection = document.getElementById('imagesSection');
+        const imagesGrid = document.getElementById('imagesGrid');
+        const imagesInfo = document.getElementById('imagesInfo');
+        const addMoreBtn = document.getElementById('addMoreBtn');
+        const generatePdfBtn = document.getElementById('generatePdfBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const errorMessage = document.getElementById('errorMessage');
+        const dropZoneIndicator = document.getElementById('dropZoneIndicator');
+
+        let selectedImages = [];
+        let draggedIndex = null;
+
+        // 事件監聽器
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', handleDragOver);
+        uploadZone.addEventListener('dragleave', handleDragLeave);
+        uploadZone.addEventListener('drop', handleFileDrop);
+        
+        addMoreBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+        generatePdfBtn.addEventListener('click', generatePDF);
+        clearBtn.addEventListener('click', clearAllImages);
+
+        // 全域拖拽檢測
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.types.includes('Files')) {
+                dropZoneIndicator.style.display = 'flex';
+            }
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            if (!e.relatedTarget) {
+                dropZoneIndicator.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZoneIndicator.style.display = 'none';
+            if (e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        }
+
+        function handleFileSelect(e) {
+            handleFiles(e.target.files);
+        }
+
+        function handleFiles(files) {
+            const imageFiles = Array.from(files).filter(file => 
+                file.type.startsWith('image/')
+            );
+
+            if (imageFiles.length === 0) {
+                showError('請選擇圖片文件！');
+                return;
+            }
+
+            if (imageFiles.length > 50) {
+                showError('一次最多只能選擇50張圖片！');
+                return;
+            }
+
+            imageFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        selectedImages.push({
+                            file: file,
+                            dataUrl: e.target.result,
+                            name: file.name,
+                            size: file.size,
+                            width: img.width,
+                            height: img.height
+                        });
+                        updateImagesDisplay();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateImagesDisplay() {
+            if (selectedImages.length === 0) {
+                imagesSection.style.display = 'none';
+                uploadArea.style.display = 'block';
+                return;
+            }
+
+            uploadArea.style.display = 'none';
+            imagesSection.style.display = 'block';
+            
+            imagesInfo.textContent = `共 ${selectedImages.length} 張圖片 | 總大小: ${formatFileSize(selectedImages.reduce((sum, img) => sum + img.size, 0))}`;
+
+            imagesGrid.innerHTML = '';
+            selectedImages.forEach((image, index) => {
+                const imageCard = document.createElement('div');
+                imageCard.className = 'image-card';
+                imageCard.draggable = true;
+                imageCard.dataset.index = index;
+
+                imageCard.innerHTML = `
+                    <div class="page-indicator">第 ${index + 1} 頁</div>
+                    <img src="${image.dataUrl}" alt="${image.name}" class="image-preview">
+                    <div class="image-info">
+                        <div class="image-name" title="${image.name}">${image.name}</div>
+                        <div class="image-details">${image.width}×${image.height} | ${formatFileSize(image.size)}</div>
+                        <div class="image-controls">
+                            <button class="move-btn" onclick="moveImage(${index}, -1)">↑</button>
+                            <button class="move-btn" onclick="moveImage(${index}, 1)">↓</button>
+                            <button class="remove-btn" onclick="removeImage(${index})">🗑️</button>
+                        </div>
+                    </div>
+                `;
+
+                // 拖拽事件
+                imageCard.addEventListener('dragstart', (e) => {
+                    draggedIndex = index;
+                    imageCard.classList.add('dragging');
+                });
+
+                imageCard.addEventListener('dragend', () => {
+                    imageCard.classList.remove('dragging');
+                    draggedIndex = null;
+                });
+
+                imageCard.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+
+                imageCard.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const dropIndex = parseInt(imageCard.dataset.index);
+                    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+                        moveImageToPosition(draggedIndex, dropIndex);
+                    }
+                });
+
+                imagesGrid.appendChild(imageCard);
+            });
+        }
+
+        function moveImage(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex >= 0 && newIndex < selectedImages.length) {
+                moveImageToPosition(index, newIndex);
+            }
+        }
+
+        function moveImageToPosition(fromIndex, toIndex) {
+            const [movedImage] = selectedImages.splice(fromIndex, 1);
+            selectedImages.splice(toIndex, 0, movedImage);
+            updateImagesDisplay();
+        }
+
+        function removeImage(index) {
+            selectedImages.splice(index, 1);
+            updateImagesDisplay();
+        }
+
+        function clearAllImages() {
+            selectedImages = [];
+            updateImagesDisplay();
+            fileInput.value = '';
+        }
+
+        async function generatePDF() {
+            if (selectedImages.length === 0) {
+                showError('請先選擇圖片！');
+                return;
+            }
+
+            try {
+                progressSection.style.display = 'block';
+                progressText.textContent = '正在生成PDF...';
+                progressFill.style.width = '0%';
+
+                const pageSize = document.getElementById('pageSizeSelect').value;
+                const orientation = document.getElementById('orientationSelect').value;
+                const scaleMode = document.getElementById('scaleSelect').value;
+                const margin = parseFloat(document.getElementById('marginInput').value);
+                const quality = parseFloat(document.getElementById('qualitySelect').value);
+
+                // 創建PDF
+                const pdf = new jsPDF({
+                    orientation: orientation,
+                    unit: 'mm',
+                    format: pageSize,
+                    compress: true
+                });
+
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const contentWidth = pageWidth - (margin * 2);
+                const contentHeight = pageHeight - (margin * 2);
+
+                for (let i = 0; i < selectedImages.length; i++) {
+                    const image = selectedImages[i];
+                    
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+
+                    // 計算圖片尺寸和位置
+                    const imgAspectRatio = image.width / image.height;
+                    const pageAspectRatio = contentWidth / contentHeight;
+
+                    let imgWidth, imgHeight, x, y;
+
+                    if (scaleMode === 'fit') {
+                        if (imgAspectRatio > pageAspectRatio) {
+                            imgWidth = contentWidth;
+                            imgHeight = contentWidth / imgAspectRatio;
+                        } else {
+                            imgHeight = contentHeight;
+                            imgWidth = contentHeight * imgAspectRatio;
+                        }
+                        x = margin + (contentWidth - imgWidth) / 2;
+                        y = margin + (contentHeight - imgHeight) / 2;
+                    } else if (scaleMode === 'fill') {
+                        if (imgAspectRatio > pageAspectRatio) {
+                            imgHeight = contentHeight;
+                            imgWidth = contentHeight * imgAspectRatio;
+                        } else {
+                            imgWidth = contentWidth;
+                            imgHeight = contentWidth / imgAspectRatio;
+                        }
+                        x = margin + (contentWidth - imgWidth) / 2;
+                        y = margin + (contentHeight - imgHeight) / 2;
+                    } else { // original
+                        const mmPerPx = 0.264583; // 96 DPI
+                        imgWidth = Math.min(image.width * mmPerPx, contentWidth);
+                        imgHeight = Math.min(image.height * mmPerPx, contentHeight);
+                        x = margin + (contentWidth - imgWidth) / 2;
+                        y = margin + (contentHeight - imgHeight) / 2;
+                    }
+
+                    // 添加圖片到PDF
+                    pdf.addImage(
+                        image.dataUrl,
+                        'JPEG',
+                        x, y, imgWidth, imgHeight,
+                        undefined,
+                        'FAST'
+                    );
+
+                    // 更新進度
+                    const progress = ((i + 1) / selectedImages.length) * 100;
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = `正在處理第 ${i + 1}/${selectedImages.length} 張圖片...`;
+
+                    // 讓UI有時間更新
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                // 下載PDF
+                const fileName = `images_to_pdf_${new Date().getTime()}.pdf`;
+                pdf.save(fileName);
+
+                progressSection.style.display = 'none';
+                showSuccess(`PDF生成成功！共 ${selectedImages.length} 頁`);
+
+            } catch (error) {
+                console.error('PDF生成錯誤:', error);
+                showError('PDF生成失敗，請檢查圖片格式是否正確！');
+                progressSection.style.display = 'none';
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            errorMessage.style.background = '#fef2f2';
+            errorMessage.style.borderColor = '#fecaca';
+            errorMessage.style.color = '#dc2626';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            errorMessage.style.background = '#f0fdf4';
+            errorMessage.style.borderColor = '#bbf7d0';
+            errorMessage.style.color = '#166534';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
