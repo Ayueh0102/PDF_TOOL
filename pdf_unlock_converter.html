@@ -380,8 +380,8 @@
                 <li>支援移除開啟密碼保護的PDF文件</li>
                 <li>純前端處理，您的文件不會上傳到任何伺服器</li>
                 <li>需要知道原始密碼才能解鎖文件</li>
-                <li>✨ 保留文字層模式：完整保留可選取/可搜尋的文字（推薦）</li>
                 <li>🎨 高品質影像模式：300 DPI 印刷級品質輸出（PNG 無損格式）</li>
+                <li>⚠️ 注意：加密的 PDF 解鎖後將轉為影像，文字無法選取（純前端技術限制）</li>
             </ul>
         </div>
 
@@ -403,22 +403,18 @@
                 </div>
                 <div class="password-hint">💡 提示：密碼區分大小寫</div>
                 <div style="margin-top: 20px;">
-                    <label class="password-label">輸出模式</label>
+                    <label class="password-label">輸出品質</label>
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <label style="flex: 1; display: flex; align-items: center; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
-                            <input type="radio" name="outputMode" value="preserve" checked style="margin-right: 8px;">
+                        <label style="flex: 1; display: flex; align-items: center; padding: 12px; border: 2px solid #f59e0b; border-radius: 8px; background: #fffbeb;">
+                            <input type="radio" name="outputMode" value="image" checked style="margin-right: 8px;">
                             <div>
-                                <div style="font-weight: 600; color: #059669;">✨ 保留文字層</div>
-                                <div style="font-size: 0.8rem; color: #6b7280;">推薦 · 可選取與搜尋</div>
+                                <div style="font-weight: 600; color: #f59e0b;">🎨 300 DPI 高品質</div>
+                                <div style="font-size: 0.8rem; color: #92400e;">PNG 無損 · 印刷級品質</div>
                             </div>
                         </label>
-                        <label style="flex: 1; display: flex; align-items: center; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
-                            <input type="radio" name="outputMode" value="image" style="margin-right: 8px;">
-                            <div>
-                                <div style="font-weight: 600; color: #f59e0b;">🎨 高品質影像</div>
-                                <div style="font-size: 0.8rem; color: #6b7280;">300 DPI · 文字無法選取</div>
-                            </div>
-                        </label>
+                    </div>
+                    <div style="margin-top: 10px; padding: 10px; background: #fef2f2; border-radius: 8px; font-size: 0.85rem; color: #991b1b;">
+                        ⚠️ 由於純前端技術限制，加密 PDF 解鎖後將轉為高品質影像（文字無法選取）
                     </div>
                 </div>
             </div>
@@ -469,7 +465,7 @@
 
         let currentFile = null;
         let unlockedPdfData = null;
-        let outputMode = 'preserve'; // 預設保留文字層
+        let outputMode = 'image'; // 僅支援影像模式
 
         // 事件監聽器
         uploadZone.addEventListener('click', () => fileInput.click());
@@ -572,121 +568,92 @@
                 // 重新讀取文件（避免 ArrayBuffer detached 錯誤）
                 const arrayBuffer = await currentFile.arrayBuffer();
 
-                if (outputMode === 'preserve') {
-                    // 保留文字層模式 - 使用 pdf-lib
-                    progressText.textContent = '正在使用 pdf-lib 解鎖（保留文字層）...';
-                    progressFill.style.width = '40%';
+                // 高品質影像模式 - 使用 PDF.js + jsPDF
+                const loadingTask = pdfjsLib.getDocument({
+                    data: arrayBuffer,
+                    password: password
+                });
+
+                const pdf = await loadingTask.promise;
+                const totalPages = pdf.numPages;
+
+                progressText.textContent = `密碼正確！正在處理 ${totalPages} 頁（300 DPI）...`;
+                progressFill.style.width = '30%';
+
+                // 計算最佳 DPI/Scale
+                const targetDPI = 300;
+                const baseDPI = 72;
+                const scale = targetDPI / baseDPI;
+                
+                console.log(`使用 ${targetDPI} DPI 品質 (scale: ${scale}x)`);
+                
+                // 創建新的PDF
+                const newPdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'pt',
+                    compress: false
+                });
+
+                // 移除預設頁
+                newPdf.deletePage(1);
+
+                for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
                     
-                    try {
-                        const pdfDoc = await PDFDocument.load(arrayBuffer, { password: password });
-                        const totalPages = pdfDoc.getPageCount();
-                        
-                        progressText.textContent = `密碼正確！正在處理 ${totalPages} 頁...`;
-                        progressFill.style.width = '70%';
-                        
-                        // 保存為新的 PDF（移除密碼）
-                        const pdfBytes = await pdfDoc.save();
-                        unlockedPdfData = new Blob([pdfBytes], { type: 'application/pdf' });
-                        
-                        progressFill.style.width = '100%';
-                        progressText.textContent = '解鎖完成！';
-                        
-                        await new Promise(resolve => setTimeout(resolve, 300));
-                        displayResults(totalPages);
-                        
-                    } catch (pdfLibError) {
-                        console.error('pdf-lib 解鎖失敗:', pdfLibError);
-                        throw new Error('保留文字層模式解鎖失敗：' + pdfLibError.message);
-                    }
+                    const originalViewport = page.getViewport({ scale: 1.0 });
+                    const viewport = page.getViewport({ scale: scale });
+
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+
+                    context.imageSmoothingEnabled = true;
+                    context.imageSmoothingQuality = 'high';
+
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport,
+                        intent: 'print'
+                    }).promise;
+
+                    const imgData = canvas.toDataURL('image/png', 1.0);
                     
-                } else {
-                    // 高品質影像模式 - 使用 PDF.js + jsPDF
-                    const loadingTask = pdfjsLib.getDocument({
-                        data: arrayBuffer,
-                        password: password
-                    });
+                    newPdf.addPage([originalViewport.width, originalViewport.height]);
+                    newPdf.addImage(
+                        imgData,
+                        'PNG',
+                        0,
+                        0,
+                        originalViewport.width,
+                        originalViewport.height,
+                        undefined,
+                        'SLOW'
+                    );
 
-                    const pdf = await loadingTask.promise;
-                    const totalPages = pdf.numPages;
-
-                    progressText.textContent = `密碼正確！正在處理 ${totalPages} 頁（300 DPI）...`;
-                    progressFill.style.width = '30%';
-
-                    // 計算最佳 DPI/Scale
-                    const targetDPI = 300;
-                    const baseDPI = 72;
-                    const scale = targetDPI / baseDPI;
+                    const progress = 30 + (pageNum / totalPages) * 65;
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = `正在處理第 ${pageNum}/${totalPages} 頁（300 DPI）...`;
                     
-                    console.log(`使用 ${targetDPI} DPI 品質 (scale: ${scale}x)`);
-                    
-                    // 創建新的PDF
-                    const newPdf = new jsPDF({
-                        orientation: 'portrait',
-                        unit: 'pt',
-                        compress: false
-                    });
-
-                    // 移除預設頁
-                    newPdf.deletePage(1);
-
-                    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        
-                        const originalViewport = page.getViewport({ scale: 1.0 });
-                        const viewport = page.getViewport({ scale: scale });
-
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-
-                        context.imageSmoothingEnabled = true;
-                        context.imageSmoothingQuality = 'high';
-
-                        await page.render({
-                            canvasContext: context,
-                            viewport: viewport,
-                            intent: 'print'
-                        }).promise;
-
-                        const imgData = canvas.toDataURL('image/png', 1.0);
-                        
-                        newPdf.addPage([originalViewport.width, originalViewport.height]);
-                        newPdf.addImage(
-                            imgData,
-                            'PNG',
-                            0,
-                            0,
-                            originalViewport.width,
-                            originalViewport.height,
-                            undefined,
-                            'SLOW'
-                        );
-
-                        const progress = 30 + (pageNum / totalPages) * 65;
-                        progressFill.style.width = progress + '%';
-                        progressText.textContent = `正在處理第 ${pageNum}/${totalPages} 頁（300 DPI）...`;
-                        
-                        await new Promise(resolve => setTimeout(resolve, 10));
-                    }
-
-                    // 刪除最後可能多餘的空白頁
-                    const pageCount = newPdf.getNumberOfPages();
-                    if (pageCount > totalPages) {
-                        newPdf.deletePage(pageCount);
-                    }
-
-                    progressText.textContent = '正在生成PDF...';
-                    progressFill.style.width = '95%';
-
-                    unlockedPdfData = newPdf.output('blob');
-
-                    progressFill.style.width = '100%';
-                    progressText.textContent = '解鎖完成！';
-
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                    displayResults(totalPages);
+                    await new Promise(resolve => setTimeout(resolve, 10));
                 }
+
+                // 刪除最後可能多餘的空白頁
+                const pageCount = newPdf.getNumberOfPages();
+                if (pageCount > totalPages) {
+                    newPdf.deletePage(pageCount);
+                }
+
+                progressText.textContent = '正在生成PDF...';
+                progressFill.style.width = '95%';
+
+                unlockedPdfData = newPdf.output('blob');
+
+                progressFill.style.width = '100%';
+                progressText.textContent = '解鎖完成！';
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+                displayResults(totalPages);
 
             } catch (error) {
                 console.error('PDF解鎖錯誤:', error);
@@ -712,11 +679,6 @@
 
             const fileSizeKB = Math.round(unlockedPdfData.size / 1024);
             const originalSizeKB = Math.round(currentFile.size / 1024);
-            
-            const modeText = outputMode === 'preserve' 
-                ? '✨ 保留文字層（可選取與搜尋）'
-                : '🎨 印刷級品質 (300 DPI | PNG 無損)';
-            const modeColor = outputMode === 'preserve' ? '#059669' : '#f59e0b';
 
             fileInfo.innerHTML = `
                 <div class="file-info-row">
@@ -728,8 +690,8 @@
                     <span class="file-info-value">${totalPages} 頁</span>
                 </div>
                 <div class="file-info-row">
-                    <span class="file-info-label">輸出模式</span>
-                    <span class="file-info-value" style="color: ${modeColor}; font-weight: 600;">${modeText}</span>
+                    <span class="file-info-label">輸出品質</span>
+                    <span class="file-info-value" style="color: #f59e0b; font-weight: 600;">🎨 印刷級品質 (300 DPI | PNG 無損)</span>
                 </div>
                 <div class="file-info-row">
                     <span class="file-info-label">原始大小</span>
