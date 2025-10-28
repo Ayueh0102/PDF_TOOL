@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF分頁輸出工具</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -382,7 +382,7 @@
     <div class="container">
         <div class="header">
             <h1>✂️ PDF分頁輸出工具</h1>
-            <p>將PDF文件拆分成單獨的頁面或指定範圍 | 自動使用 300 DPI 印刷級品質</p>
+            <p>將PDF文件拆分成單獨的頁面或指定範圍 | 保留文字、向量與可搜尋</p>
         </div>
 
         <div class="settings-panel">
@@ -487,7 +487,7 @@
     </div>
 
     <script>
-        const { jsPDF } = window.jspdf;
+        const { PDFDocument } = PDFLib;
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         const uploadZone = document.getElementById('uploadZone');
@@ -513,6 +513,9 @@
         let previewPages = []; // 預覽數據
         let splitPages = []; // 最終生成的高品質數據
         let originalFileName = '';
+        let originalPdfBytes = null; // 原始PDF位元組，用於pdf-lib
+        let sourcePdfDoc = null; // pdf-lib 載入後的文件
+        let combinedPdfBlob = null; // 合併輸出的PDF
 
         const outputFormat = document.getElementById('outputFormat');
         const namingGroup = document.getElementById('namingGroup');
@@ -616,7 +619,10 @@
                 previewPages = [];
 
                 const arrayBuffer = await file.arrayBuffer();
-                currentPdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                // 重要：複製兩份，避免被 PDF.js worker 轉移後造成 detached
+                originalPdfBytes = arrayBuffer.slice(0); // pdf-lib 專用副本
+                const pdfJsBytes = arrayBuffer.slice(0); // PDF.js 專用副本
+                currentPdf = await pdfjsLib.getDocument({ data: pdfJsBytes }).promise;
                 totalPagesCount = currentPdf.numPages;
 
                 // 更新結束頁的最大值
@@ -702,6 +708,7 @@
                 previewSection.style.display = 'none';
                 resultsSection.style.display = 'none';
                 splitPages = [];
+                combinedPdfBlob = null;
 
                 // 確定要處理的頁面和分組
                 let pagesToProcess = [];
@@ -747,153 +754,98 @@
                         return;
                     }
                 }
-
                 // 如果是分組模式，計算總頁數
                 const totalToProcess = currentMode === 'group' 
                     ? pageGroups.reduce((sum, group) => sum + group.length, 0)
                     : pagesToProcess.length;
 
-                progressText.textContent = `正在生成${currentMode === 'group' ? ` ${pageGroups.length} 組（共` : ''} ${totalToProcess} 頁${currentMode === 'group' ? '）' : ''}（300 DPI 高品質）...`;
+                progressText.textContent = `正在生成${currentMode === 'group' ? ` ${pageGroups.length} 組（共` : ''} ${totalToProcess} 頁${currentMode === 'group' ? '）' : ''}（保留文字與向量）...`;
 
-                // 使用 300 DPI 高品質設定
-                const targetDPI = 300;
-                const baseDPI = 72;
-                const scale = targetDPI / baseDPI; // 4.17x
-                
-                console.log(`開始生成，使用 ${targetDPI} DPI 品質`);
+                // 使用 pdf-lib 保留文字/向量
+                if (!sourcePdfDoc) {
+                    sourcePdfDoc = await PDFDocument.load(originalPdfBytes);
+                }
 
-                // 分組模式：處理每個分組
+                // 建立預覽映射以便取得縮圖與尺寸
+                const previewMap = new Map(previewPages.map(p => [p.pageNum, p]));
+
                 if (currentMode === 'group') {
                     let processedPages = 0;
-                    
                     for (let groupIndex = 0; groupIndex < pageGroups.length; groupIndex++) {
                         const group = pageGroups[groupIndex];
-                        const groupPdf = new jsPDF({
-                            orientation: 'portrait',
-                            unit: 'pt',
-                            compress: false
-                        });
-                        
-                        groupPdf.deletePage(1); // 刪除預設頁
-                        let groupImages = [];
-                        
-                        // 處理組內每一頁
-                        for (let pageIndex = 0; pageIndex < group.length; pageIndex++) {
-                            const pageNum = group[pageIndex];
-                            const page = await currentPdf.getPage(pageNum);
-                            
-                            const originalViewport = page.getViewport({ scale: 1.0 });
-                            const viewport = page.getViewport({ scale: scale });
+                        const newPdf = await PDFDocument.create();
+                        const copiedPages = await newPdf.copyPages(sourcePdfDoc, group.map(n => n - 1));
+                        copiedPages.forEach(p => newPdf.addPage(p));
 
-                            const canvas = document.createElement('canvas');
-                            const context = canvas.getContext('2d');
-                            canvas.width = viewport.width;
-                            canvas.height = viewport.height;
+                        const pdfBytes = await newPdf.save();
+                        const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
 
-                            context.imageSmoothingEnabled = true;
-                            context.imageSmoothingQuality = 'high';
-
-                            await page.render({
-                                canvasContext: context,
-                                viewport: viewport,
-                                intent: 'print'
-                            }).promise;
-
-                            const imgData = canvas.toDataURL('image/png', 1.0);
-                            
-                            // 添加到組PDF
-                            groupPdf.addPage([originalViewport.width, originalViewport.height]);
-                            groupPdf.addImage(imgData, 'PNG', 0, 0, originalViewport.width, originalViewport.height, undefined, 'SLOW');
-                            
-                            if (pageIndex === 0) {
-                                groupImages.push({
-                                    previewUrl: canvas.toDataURL('image/png', 0.3),
-                                    width: originalViewport.width,
-                                    height: originalViewport.height
-                                });
-                            }
-
-                            processedPages++;
-                            const progress = (processedPages / totalToProcess) * 100;
-                            progressFill.style.width = progress + '%';
-                            progressText.textContent = `已生成 ${processedPages}/${totalToProcess} 頁（第 ${groupIndex + 1}/${pageGroups.length} 組）`;
-                            
-                            await new Promise(resolve => setTimeout(resolve, 5));
-                        }
-                        
-                        // 刪除可能多餘的頁面
-                        const pageCount = groupPdf.getNumberOfPages();
-                        if (pageCount > group.length) {
-                            groupPdf.deletePage(pageCount);
-                        }
-                        
-                        // 保存組PDF
-                        const pdfBlob = groupPdf.output('blob');
+                        const firstPrev = previewMap.get(group[0]);
                         splitPages.push({
-                            pageNum: group[0], // 使用組的第一頁作為標識
+                            pageNum: group[0],
                             pageRange: `${group[0]}-${group[group.length - 1]}`,
                             isGroup: true,
                             groupSize: group.length,
                             blob: pdfBlob,
-                            previewUrl: groupImages[0].previewUrl,
+                            previewUrl: firstPrev ? firstPrev.previewUrl : '',
                             size: pdfBlob.size,
-                            dimensions: `${Math.round(groupImages[0].width)}×${Math.round(groupImages[0].height)}`,
-                            originalWidth: groupImages[0].width,
-                            originalHeight: groupImages[0].height
+                            dimensions: firstPrev ? `${Math.round(firstPrev.width)}×${Math.round(firstPrev.height)}` : ''
                         });
+
+                        processedPages += group.length;
+                        const progress = (processedPages / totalToProcess) * 100;
+                        progressFill.style.width = progress + '%';
+                        progressText.textContent = `已生成 ${processedPages}/${totalToProcess} 頁（第 ${groupIndex + 1}/${pageGroups.length} 組）`;
+                        await new Promise(resolve => setTimeout(resolve, 5));
                     }
                 } else {
-                    // 單頁或其他模式：處理每一頁
-                    for (let i = 0; i < pagesToProcess.length; i++) {
-                        const pageNum = pagesToProcess[i];
-                        const page = await currentPdf.getPage(pageNum);
-                        
-                        const originalViewport = page.getViewport({ scale: 1.0 });
-                        const viewport = page.getViewport({ scale: scale });
-
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-
-                        context.imageSmoothingEnabled = true;
-                        context.imageSmoothingQuality = 'high';
-
-                        await page.render({
-                            canvasContext: context,
-                            viewport: viewport,
-                            intent: 'print'
-                        }).promise;
-
-                        const newPdf = new jsPDF({
-                            orientation: originalViewport.width > originalViewport.height ? 'landscape' : 'portrait',
-                            unit: 'pt',
-                            format: [originalViewport.width, originalViewport.height],
-                            compress: false
+                    const outputFormatValue = document.getElementById('outputFormat').value;
+                    if (outputFormatValue === 'combined') {
+                        // 合併為單一PDF
+                        const newPdf = await PDFDocument.create();
+                        const copiedPages = await newPdf.copyPages(sourcePdfDoc, pagesToProcess.map(n => n - 1));
+                        copiedPages.forEach((p, idx) => {
+                            newPdf.addPage(p);
+                            const progress = ((idx + 1) / pagesToProcess.length) * 100;
+                            progressFill.style.width = progress + '%';
+                            progressText.textContent = `已加入第 ${idx + 1}/${pagesToProcess.length} 頁...`;
                         });
+                        const pdfBytes = await newPdf.save();
+                        combinedPdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
 
-                        const imgData = canvas.toDataURL('image/png', 1.0);
-                        newPdf.addImage(imgData, 'PNG', 0, 0, originalViewport.width, originalViewport.height, undefined, 'SLOW');
-
-                        const pdfBlob = newPdf.output('blob');
-                        const previewUrl = canvas.toDataURL('image/png', 0.3);
-
-                        splitPages.push({
-                            pageNum: pageNum,
-                            blob: pdfBlob,
-                            previewUrl: previewUrl,
-                            highQualityImg: imgData,
-                            size: pdfBlob.size,
-                            dimensions: `${Math.round(originalViewport.width)}×${Math.round(originalViewport.height)}`,
-                            originalWidth: originalViewport.width,
-                            originalHeight: originalViewport.height
+                        // 用於結果預覽的列表（不提供逐頁下載）
+                        splitPages = pagesToProcess.map(n => {
+                            const prev = previewMap.get(n);
+                            return {
+                                pageNum: n,
+                                previewUrl: prev ? prev.previewUrl : '',
+                                dimensions: prev ? `${Math.round(prev.width)}×${Math.round(prev.height)}` : ''
+                            };
                         });
+                    } else {
+                        // 每頁獨立PDF
+                        for (let i = 0; i < pagesToProcess.length; i++) {
+                            const pageNum = pagesToProcess[i];
+                            const newPdf = await PDFDocument.create();
+                            const [copied] = await newPdf.copyPages(sourcePdfDoc, [pageNum - 1]);
+                            newPdf.addPage(copied);
+                            const pdfBytes = await newPdf.save();
+                            const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+                            const prev = previewMap.get(pageNum);
 
-                        const progress = ((i + 1) / pagesToProcess.length) * 100;
-                        progressFill.style.width = progress + '%';
-                        progressText.textContent = `已生成 ${i + 1}/${pagesToProcess.length} 頁（300 DPI）`;
-                        
-                        await new Promise(resolve => setTimeout(resolve, 10));
+                            splitPages.push({
+                                pageNum: pageNum,
+                                blob: pdfBlob,
+                                previewUrl: prev ? prev.previewUrl : '',
+                                size: pdfBlob.size,
+                                dimensions: prev ? `${Math.round(prev.width)}×${Math.round(prev.height)}` : ''
+                            });
+
+                            const progress = ((i + 1) / pagesToProcess.length) * 100;
+                            progressFill.style.width = progress + '%';
+                            progressText.textContent = `已生成 ${i + 1}/${pagesToProcess.length} 頁...`;
+                            await new Promise(resolve => setTimeout(resolve, 10));
+                        }
                     }
                 }
 
@@ -936,19 +888,21 @@
         function displayResults() {
             resultsGrid.innerHTML = '';
             
-            const totalSize = splitPages.reduce((sum, page) => sum + page.size, 0);
             const outputFormatValue = document.getElementById('outputFormat').value;
+            const totalSize = (currentMode === 'group' || outputFormatValue !== 'combined')
+                ? splitPages.reduce((sum, page) => sum + (page.size || 0), 0)
+                : (combinedPdfBlob ? combinedPdfBlob.size : 0);
             
             // 根據模式和輸出格式設定結果資訊
             if (currentMode === 'group') {
                 const totalPages = splitPages.reduce((sum, p) => sum + (p.groupSize || 1), 0);
-                resultsInfo.textContent = `已生成 ${splitPages.length} 個PDF文件（共 ${totalPages} 頁）| 品質: 300 DPI (PNG 無損) | 總大小: ${formatFileSize(totalSize / 1024)}`;
+                resultsInfo.textContent = `已生成 ${splitPages.length} 個PDF文件（共 ${totalPages} 頁）| 保留文字與向量 | 總大小: ${formatFileSize(totalSize / 1024)}`;
                 downloadBtn.textContent = '📦 下載全部';
             } else if (outputFormatValue === 'combined') {
-                resultsInfo.textContent = `已生成 ${splitPages.length} 頁 | 品質: 300 DPI (PNG 無損) | 總大小: ${formatFileSize(totalSize / 1024)}`;
+                resultsInfo.textContent = `已生成 ${splitPages.length} 頁 | 保留文字與向量 | 合併檔大小: ${formatFileSize((totalSize || 0) / 1024)}`;
                 downloadBtn.textContent = '📄 下載合併PDF';
             } else {
-                resultsInfo.textContent = `已生成 ${splitPages.length} 個PDF文件 | 品質: 300 DPI (PNG 無損) | 總大小: ${formatFileSize(totalSize / 1024)}`;
+                resultsInfo.textContent = `已生成 ${splitPages.length} 個PDF文件 | 保留文字與向量 | 總大小: ${formatFileSize(totalSize / 1024)}`;
                 downloadBtn.textContent = '📦 下載全部';
             }
 
@@ -975,17 +929,21 @@
                     } else {
                         fileName = `${originalFileName}_page_${page.pageNum}.pdf`;
                     }
-                    pageTitle = `第 ${page.pageNum} 頁 (300 DPI)`;
+                    pageTitle = `第 ${page.pageNum} 頁`;
                 }
+
+                const isCombined = document.getElementById('outputFormat').value === 'combined';
+                const detailsText = isCombined ? `${page.dimensions}` : `${page.dimensions} | ${formatFileSize((page.size || 0) / 1024)}`;
+                const buttonHtml = isCombined 
+                    ? `<button class="download-btn" onclick="downloadCombinedPDF()">📄 下載合併PDF</button>`
+                    : `<button class="download-btn" onclick="downloadPage(${index}, '${fileName}')">💾 下載PDF</button>`;
 
                 pageCard.innerHTML = `
                     <img src="${page.previewUrl}" alt="Page ${page.pageNum}" class="page-preview">
                     <div class="page-info">
                         <div class="page-title">${pageTitle}</div>
-                        <div class="page-details">${page.dimensions} | ${formatFileSize(page.size / 1024)}</div>
-                        <button class="download-btn" onclick="downloadPage(${index}, '${fileName}')">
-                            💾 下載PDF
-                        </button>
+                        <div class="page-details">${detailsText}</div>
+                        ${buttonHtml}
                     </div>
                 `;
                 
@@ -1007,85 +965,48 @@
 
             if (outputFormatValue === 'combined') {
                 // 合併所有頁面為單一PDF
-                console.log('開始合併 PDF，共', splitPages.length, '頁');
+                console.log('下載合併 PDF，共', splitPages.length, '頁');
                 downloadCombinedPDF();
             } else {
                 // 下載所有獨立PDF
                 const namingFormat = document.getElementById('namingFormat').value;
                 console.log('開始下載獨立 PDF，共', splitPages.length, '個文件');
-                
-                splitPages.forEach((page, index) => {
-                    setTimeout(() => {
-                        let fileName;
-                        if (namingFormat === 'numbered') {
-                            fileName = `page_${page.pageNum}.pdf`;
-                        } else {
-                            fileName = `${originalFileName}_page_${page.pageNum}.pdf`;
-                        }
-                        downloadPage(index, fileName);
-                    }, index * 300);
-                });
+
+                if (currentMode === 'group') {
+                    splitPages.forEach((item, index) => {
+                        setTimeout(() => {
+                            const fileName = namingFormat === 'numbered' 
+                                ? `pages_${item.pageRange}.pdf` 
+                                : `${originalFileName}_pages_${item.pageRange}.pdf`;
+                            downloadPage(index, fileName);
+                        }, index * 300);
+                    });
+                } else {
+                    splitPages.forEach((page, index) => {
+                        setTimeout(() => {
+                            let fileName;
+                            if (namingFormat === 'numbered') {
+                                fileName = `page_${page.pageNum}.pdf`;
+                            } else {
+                                fileName = `${originalFileName}_page_${page.pageNum}.pdf`;
+                            }
+                            downloadPage(index, fileName);
+                        }, index * 300);
+                    });
+                }
             }
         }
 
         async function downloadCombinedPDF() {
-            progressSection.style.display = 'block';
-            progressText.textContent = '正在合併PDF...';
-            
-            try {
-                // 創建新的合併 PDF
-                const mergedPdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'pt',
-                    compress: false
-                });
-
-                // 刪除預設頁
-                mergedPdf.deletePage(1);
-
-                for (let i = 0; i < splitPages.length; i++) {
-                    const pageData = splitPages[i];
-                    
-                    // 使用保存的原始尺寸
-                    const width = pageData.originalWidth;
-                    const height = pageData.originalHeight;
-
-                    // 添加新頁面
-                    mergedPdf.addPage([width, height]);
-                    
-                    // 使用高品質圖片數據
-                    mergedPdf.addImage(
-                        pageData.highQualityImg,
-                        'PNG',
-                        0, 0,
-                        width, height,
-                        undefined,
-                        'SLOW'
-                    );
-
-                    // 更新進度
-                    progressFill.style.width = ((i + 1) / splitPages.length * 100) + '%';
-                    progressText.textContent = `正在合併第 ${i + 1}/${splitPages.length} 頁...`;
-                    
-                    // 讓 UI 有時間更新
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
-
-                // 刪除可能多餘的頁面
-                const pageCount = mergedPdf.getNumberOfPages();
-                if (pageCount > splitPages.length) {
-                    mergedPdf.deletePage(pageCount);
-                }
-
-                // 保存合併後的 PDF
-                mergedPdf.save(`${originalFileName}_merged.pdf`);
-                progressSection.style.display = 'none';
-                
-            } catch (error) {
-                console.error('合併錯誤:', error);
-                showError('PDF合併失敗：' + error.message);
-                progressSection.style.display = 'none';
+            if (!combinedPdfBlob) {
+                showError('尚未生成合併PDF！');
+                return;
             }
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(combinedPdfBlob);
+            link.download = `${originalFileName}_combined.pdf`;
+            link.click();
+            URL.revokeObjectURL(link.href);
         }
 
         function resetApp() {
@@ -1094,6 +1015,9 @@
             previewPages = [];
             splitPages = [];
             originalFileName = '';
+            originalPdfBytes = null;
+            sourcePdfDoc = null;
+            combinedPdfBlob = null;
             fileInput.value = '';
             progressSection.style.display = 'none';
             previewSection.style.display = 'none';
